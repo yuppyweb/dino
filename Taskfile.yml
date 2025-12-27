@@ -1,10 +1,19 @@
 version: '3'
 
 tasks:
+  gen:
+    cmds:
+      - go generate ./...
+    desc: Generate code
+
+  fix:
+    cmds:
+      - golangci-lint run --fix --color=always 
+    desc: Automatically fix linting issues
+
   lint:
     cmds:
-      - golangci-lint fmt
-      - golangci-lint --color=always run
+      - golangci-lint run --color=always
     desc: Run golangci-lint on the codebase
 
   test:

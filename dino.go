@@ -1,31 +1,31 @@
 package dino
 
 import (
-	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 )
 
-var (
-	ErrNilValue       = errors.New("nil value provided")
-	ErrExpectedFunc   = errors.New("expected function")
-	ErrExpectedStruct = errors.New("expected struct or pointer to struct")
-)
+type DependencyInjector interface {
+	Bind(rt reflect.Type, rv reflect.Value, tags ...string) error
+	Inject(rv reflect.Value) error
+	Invoke(rv reflect.Value) error
+}
 
 type Dino struct {
-	registry *Registry
-	mu       sync.Mutex
+	di DependencyInjector
+	mu sync.Mutex
 }
 
 func New() *Dino {
 	return &Dino{
-		registry: new(Registry),
-		mu:       sync.Mutex{},
+		di: NewInjector(),
+		mu: sync.Mutex{},
 	}
 }
 
-func (d *Dino) WithRegistry(registry *Registry) *Dino {
-	d.registry = registry
+func (d *Dino) WithDI(di DependencyInjector) *Dino {
+	d.di = di
 
 	return d
 }
@@ -34,28 +34,20 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 	rt := reflect.TypeOf(fn)
 
 	if !isFunction(rt) {
-		return ErrExpectedFunc
+		return fmt.Errorf("%w: got %s", ErrExpectedFunction, rt.Kind())
 	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if len(tags) == 0 {
-		tags = []string{""}
-	}
-
 	for idx := range rt.NumOut() {
-		if rt.Out(idx).Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		outType := rt.Out(idx)
+		if outType.Implements(reflect.TypeOf((*error)(nil)).Elem()) {
 			continue
 		}
 
-		for _, tag := range tags {
-			key := Key{
-				Tag: tag,
-				Ref: rt.Out(idx),
-			}
-
-			d.registry.Add(key, reflect.ValueOf(fn))
+		if err := d.di.Bind(outType, reflect.ValueOf(fn), tags...); err != nil {
+			return fmt.Errorf("failed to bind factory function output: %w", err)
 		}
 	}
 
@@ -63,67 +55,34 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 }
 
 func (d *Dino) Singleton(val any, tags ...string) error {
-	if val == nil {
-		return ErrNilValue
-	}
-
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if len(tags) == 0 {
-		tags = []string{""}
-	}
-
-	rt := reflect.TypeOf(val)
-
-	for _, tag := range tags {
-		key := Key{
-			Tag: tag,
-			Ref: rt,
-		}
-
-		d.registry.Add(key, reflect.ValueOf(val))
+	if err := d.di.Bind(reflect.TypeOf(val), reflect.ValueOf(val), tags...); err != nil {
+		return fmt.Errorf("failed to bind singleton: %w", err)
 	}
 
 	return nil
 }
 
 func (d *Dino) Inject(target any) error {
-	rt := reflect.TypeOf(target)
-
-	if !isStruct(rt) && !isPointerToStruct(rt) {
-		return ErrExpectedStruct
-	}
-
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	resolver := NewResolver(d.registry)
-	resolver.Inject(reflect.ValueOf(target))
-
-	if len(resolver.errors) == 0 {
-		return nil
+	if err := d.di.Inject(reflect.ValueOf(target)); err != nil {
+		return fmt.Errorf("failed to inject dependencies: %w", err)
 	}
 
-	return resolver
+	return nil
 }
 
-func (d *Dino) Execute(fn any) error {
-	rt := reflect.TypeOf(fn)
-
-	if !isFunction(rt) {
-		return ErrExpectedFunc
-	}
-
+func (d *Dino) Invoke(fn any) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	resolver := NewResolver(d.registry)
-	resolver.Execute(reflect.ValueOf(fn))
-
-	if len(resolver.errors) == 0 {
-		return nil
+	if err := d.di.Invoke(reflect.ValueOf(fn)); err != nil {
+		return fmt.Errorf("failed to invoke function: %w", err)
 	}
 
-	return resolver
+	return nil
 }

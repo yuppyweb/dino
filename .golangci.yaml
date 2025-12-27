@@ -119,7 +119,13 @@ linters:
     varnamelen:
       min-name-length: 2
     funlen:
-      lines: 70
+      lines: 75
+    cyclop:
+      max-complexity: 11
+    nestif:
+      min-complexity: 7
+    exhaustive:
+      default-signifies-exhaustive: true
   exclusions:
     generated: lax
     presets:
@@ -127,6 +133,12 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
+    rules:
+      - linters:
+          - err113
+          - funlen
+          - exhaustruct
+        path: _test.go
     paths:
       - third_party$
       - builtin$

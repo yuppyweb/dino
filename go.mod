@@ -5,6 +5,7 @@ go 1.25.4
 tool (
 	github.com/go-task/task/v3/cmd/task
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+	github.com/yuppyweb/xerox
 	golang.org/x/vuln/cmd/govulncheck
 )
 
@@ -229,6 +230,7 @@ require (
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.3.0 // indirect
 	github.com/ykadowak/zerologlint v0.1.5 // indirect
+	github.com/yuppyweb/xerox v0.0.0-20251217135540-e71070726f62 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	gitlab.com/bosi/decorder v0.4.2 // indirect
 	go-simpler.org/musttag v0.14.0 // indirect

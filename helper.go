@@ -17,14 +17,27 @@ func isFunction(rt reflect.Type) bool {
 }
 
 func isNil(rv reflect.Value) bool {
-	switch rv.Type().Kind() {
-	case reflect.Invalid:
+	if !rv.IsValid() {
 		return true
+	}
 
+	switch rv.Type().Kind() {
 	case reflect.Pointer, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
 		return rv.IsNil()
 
 	default:
 		return false
 	}
+}
+
+func asError(rv reflect.Value) error {
+	if isNil(rv) || !rv.CanInterface() {
+		return nil
+	}
+
+	if err, ok := rv.Interface().(error); ok && err != nil {
+		return err
+	}
+
+	return nil
 }

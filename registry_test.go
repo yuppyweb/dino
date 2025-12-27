@@ -1,6 +1,7 @@
 package dino_test
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 	"sync"
@@ -13,15 +14,18 @@ func TestRegistry_EmptyTag(t *testing.T) {
 	t.Parallel()
 
 	key := dino.Key{
-		Tag: "",
-		Ref: reflect.TypeOf(0),
+		Tag:  "",
+		Type: reflect.TypeOf(0),
 	}
 
-	registry := &dino.Registry{}
-	registry.Add(key, reflect.ValueOf(42))
+	registry := new(dino.Registry)
 
-	val, ok := registry.Get(key)
-	if !ok {
+	if err := registry.Register(key, reflect.ValueOf(42)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val, err := registry.Find(key)
+	if err != nil {
 		t.Fatalf("expected key to be found")
 	}
 
@@ -34,15 +38,18 @@ func TestRegistry_FilledTag(t *testing.T) {
 	t.Parallel()
 
 	key := dino.Key{
-		Tag: "test",
-		Ref: reflect.TypeOf(""),
+		Tag:  "test",
+		Type: reflect.TypeOf(""),
 	}
 
-	registry := &dino.Registry{}
-	registry.Add(key, reflect.ValueOf("hello"))
+	registry := new(dino.Registry)
 
-	val, ok := registry.Get(key)
-	if !ok {
+	if err := registry.Register(key, reflect.ValueOf("hello")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val, err := registry.Find(key)
+	if err != nil {
 		t.Fatalf("expected key to be found")
 	}
 
@@ -55,27 +62,36 @@ func TestRegistry_DifferentTagsSomeTypes(t *testing.T) {
 	t.Parallel()
 
 	key1 := dino.Key{
-		Tag: "",
-		Ref: reflect.TypeOf(0),
+		Tag:  "",
+		Type: reflect.TypeOf(0),
 	}
 
 	key2 := dino.Key{
-		Tag: "special",
-		Ref: reflect.TypeOf(0),
+		Tag:  "special",
+		Type: reflect.TypeOf(0),
 	}
 
 	key3 := dino.Key{
-		Tag: "another",
-		Ref: reflect.TypeOf(0),
+		Tag:  "another",
+		Type: reflect.TypeOf(0),
 	}
 
-	registry := &dino.Registry{}
-	registry.Add(key1, reflect.ValueOf(1))
-	registry.Add(key2, reflect.ValueOf(2))
-	registry.Add(key3, reflect.ValueOf(3))
+	registry := new(dino.Registry)
 
-	val1, ok1 := registry.Get(key1)
-	if !ok1 {
+	if err := registry.Register(key1, reflect.ValueOf(1)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := registry.Register(key2, reflect.ValueOf(2)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := registry.Register(key3, reflect.ValueOf(3)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val1, err1 := registry.Find(key1)
+	if err1 != nil {
 		t.Fatalf("expected key1 to be found")
 	}
 
@@ -83,8 +99,8 @@ func TestRegistry_DifferentTagsSomeTypes(t *testing.T) {
 		t.Fatalf("expected value for key1 to be 1, got %d", val1.Int())
 	}
 
-	val2, ok2 := registry.Get(key2)
-	if !ok2 {
+	val2, err2 := registry.Find(key2)
+	if err2 != nil {
 		t.Fatalf("expected key2 to be found")
 	}
 
@@ -92,8 +108,8 @@ func TestRegistry_DifferentTagsSomeTypes(t *testing.T) {
 		t.Fatalf("expected value for key2 to be 2, got %d", val2.Int())
 	}
 
-	val3, ok3 := registry.Get(key3)
-	if !ok3 {
+	val3, err3 := registry.Find(key3)
+	if err3 != nil {
 		t.Fatalf("expected key3 to be found")
 	}
 
@@ -106,15 +122,18 @@ func TestRegistry_OverwriteWithSomeKeys(t *testing.T) {
 	t.Parallel()
 
 	key := dino.Key{
-		Tag: "duplicate",
-		Ref: reflect.TypeOf(0),
+		Tag:  "duplicate",
+		Type: reflect.TypeOf(0),
 	}
 
-	registry := &dino.Registry{}
-	registry.Add(key, reflect.ValueOf(100))
+	registry := new(dino.Registry)
 
-	val, ok := registry.Get(key)
-	if !ok {
+	if err := registry.Register(key, reflect.ValueOf(100)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val, err := registry.Find(key)
+	if err != nil {
 		t.Fatalf("expected key to be found")
 	}
 
@@ -122,10 +141,12 @@ func TestRegistry_OverwriteWithSomeKeys(t *testing.T) {
 		t.Fatalf("expected value to be 100, got %d", val.Int())
 	}
 
-	registry.Add(key, reflect.ValueOf(200))
+	if err := registry.Register(key, reflect.ValueOf(200)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	val, ok = registry.Get(key)
-	if !ok {
+	val, err = registry.Find(key)
+	if err != nil {
 		t.Fatalf("expected key to be found")
 	}
 
@@ -134,22 +155,97 @@ func TestRegistry_OverwriteWithSomeKeys(t *testing.T) {
 	}
 }
 
-func TestRegistry_KeyNotFound(t *testing.T) {
+func TestRegistry_KeyTypeNil(t *testing.T) {
 	t.Parallel()
 
 	key := dino.Key{
-		Tag: "missing",
-		Ref: reflect.TypeOf(""),
+		Tag:  "niltype",
+		Type: nil,
 	}
 
-	registry := &dino.Registry{}
+	registry := new(dino.Registry)
 
-	val, ok := registry.Get(key)
-	if ok {
-		t.Fatalf("expected key to not be found")
+	err := registry.Register(key, reflect.ValueOf(0))
+	if !errors.Is(err, dino.ErrKeyTypeNil) {
+		t.Fatalf("expected ErrKeyTypeNil, got %v", err)
+	}
+}
+
+func TestRegistry_InvalidValue(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		val  reflect.Value
+	}{
+		{
+			name: "Zero Value",
+			val:  reflect.Value{},
+		},
+		{
+			name: "Nil Value",
+			val:  reflect.ValueOf(nil),
+		},
+		{
+			name: "Non-Reflect Value",
+			val:  reflect.ValueOf((error)(nil)),
+		},
 	}
 
-	if val != reflect.Zero(key.Ref) {
+	key := dino.Key{
+		Tag:  "invalid",
+		Type: reflect.TypeOf(0),
+	}
+
+	registry := new(dino.Registry)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := registry.Register(key, tc.val)
+			if !errors.Is(err, dino.ErrInvalidValue) {
+				t.Fatalf("expected ErrInvalidValue, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRegistry_ValueNotFound(t *testing.T) {
+	t.Parallel()
+
+	key := dino.Key{
+		Tag:  "missing",
+		Type: reflect.TypeOf(""),
+	}
+
+	registry := new(dino.Registry)
+
+	val, err := registry.Find(key)
+	if !errors.Is(err, dino.ErrValueNotFound) {
+		t.Fatalf("expected ErrValueNotFound, got %v", err)
+	}
+
+	if val != reflect.Zero(key.Type) {
+		t.Fatalf("expected value to be zero value, got %v", val)
+	}
+}
+
+func TestRegistry_InvalidValueStored(t *testing.T) {
+	t.Parallel()
+
+	key := dino.Key{
+		Tag:  "invalid",
+		Type: reflect.TypeOf(0),
+	}
+
+	registry := new(dino.Registry)
+	registry.MockRegister(key, "this is not a reflect.Value")
+
+	val, err := registry.Find(key)
+	if !errors.Is(err, dino.ErrInvalidValue) {
+		t.Fatalf("expected ErrInvalidValue, got %v", err)
+	}
+
+	if val != reflect.Zero(key.Type) {
 		t.Fatalf("expected value to be zero value, got %v", val)
 	}
 }
@@ -160,21 +256,27 @@ func TestRegistry_DifferentTypesSameTag(t *testing.T) {
 	tag := "shared"
 
 	key1 := dino.Key{
-		Tag: tag,
-		Ref: reflect.TypeOf(0),
+		Tag:  tag,
+		Type: reflect.TypeOf(0),
 	}
 
 	key2 := dino.Key{
-		Tag: tag,
-		Ref: reflect.TypeOf(""),
+		Tag:  tag,
+		Type: reflect.TypeOf(""),
 	}
 
-	registry := &dino.Registry{}
-	registry.Add(key1, reflect.ValueOf(123))
-	registry.Add(key2, reflect.ValueOf("abc"))
+	registry := new(dino.Registry)
 
-	val1, ok1 := registry.Get(key1)
-	if !ok1 {
+	if err := registry.Register(key1, reflect.ValueOf(123)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := registry.Register(key2, reflect.ValueOf("abc")); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	val1, err1 := registry.Find(key1)
+	if err1 != nil {
 		t.Fatalf("expected key1 to be found")
 	}
 
@@ -182,8 +284,8 @@ func TestRegistry_DifferentTypesSameTag(t *testing.T) {
 		t.Fatalf("expected value for key1 to be 123, got %d", val1.Int())
 	}
 
-	val2, ok2 := registry.Get(key2)
-	if !ok2 {
+	val2, err2 := registry.Find(key2)
+	if err2 != nil {
 		t.Fatalf("expected key2 to be found")
 	}
 
@@ -197,26 +299,29 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	registry := &dino.Registry{}
+	registry := new(dino.Registry)
 	keyChan := make(chan dino.Key, 100)
 
-	for i := range 100 {
+	for idx := range 100 {
 		wg.Go(func() {
 			key := dino.Key{
-				Tag: strconv.Itoa(i),
-				Ref: reflect.TypeOf(i),
+				Tag:  strconv.Itoa(idx),
+				Type: reflect.TypeOf(idx),
 			}
 
-			registry.Add(key, reflect.ValueOf(i))
+			if err := registry.Register(key, reflect.ValueOf(idx)); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
 			keyChan <- key
 		})
 
 		wg.Go(func() {
 			key := <-keyChan
 
-			val, ok := registry.Get(key)
-			if !ok {
-				t.Errorf("expected key to be found for goroutine %d", i)
+			val, err := registry.Find(key)
+			if err != nil {
+				t.Errorf("expected key to be found for goroutine %d", idx)
 			}
 
 			num, _ := strconv.Atoi(key.Tag)
