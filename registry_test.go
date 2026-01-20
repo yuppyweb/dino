@@ -10,15 +10,75 @@ import (
 	"github.com/yuppyweb/dino"
 )
 
+type MockRegistry struct {
+	RegisterOn []struct {
+		Key   dino.RegistryKey
+		Value reflect.Value
+	}
+	RegisterOut []error
+	FindOn      []dino.RegistryKey
+	FindOut     []struct {
+		Value reflect.Value
+		Err   error
+	}
+	numRegOut  int
+	numFindOut int
+}
+
+func NewMockRegistry() *MockRegistry {
+	return &MockRegistry{
+		RegisterOn: []struct {
+			Key   dino.RegistryKey
+			Value reflect.Value
+		}{},
+		RegisterOut: []error{},
+		FindOn:      []dino.RegistryKey{},
+		FindOut: []struct {
+			Value reflect.Value
+			Err   error
+		}{},
+		numRegOut:  0,
+		numFindOut: 0,
+	}
+}
+
+func (m *MockRegistry) Register(key dino.RegistryKey, value reflect.Value) error {
+	m.RegisterOn = append(m.RegisterOn, struct {
+		Key   dino.RegistryKey
+		Value reflect.Value
+	}{
+		Key:   key,
+		Value: value,
+	})
+
+	defer func() {
+		m.numRegOut++
+	}()
+
+	return m.RegisterOut[m.numRegOut]
+}
+
+func (m *MockRegistry) Find(key dino.RegistryKey) (reflect.Value, error) {
+	m.FindOn = append(m.FindOn, key)
+
+	defer func() {
+		m.numFindOut++
+	}()
+
+	return m.FindOut[m.numFindOut].Value, m.FindOut[m.numFindOut].Err
+}
+
+var _ dino.Registry = (*MockRegistry)(nil)
+
 func TestRegistry_EmptyTag(t *testing.T) {
 	t.Parallel()
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "",
 		Type: reflect.TypeOf(0),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	if err := registry.Register(key, reflect.ValueOf(42)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -37,12 +97,12 @@ func TestRegistry_EmptyTag(t *testing.T) {
 func TestRegistry_FilledTag(t *testing.T) {
 	t.Parallel()
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "test",
 		Type: reflect.TypeOf(""),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	if err := registry.Register(key, reflect.ValueOf("hello")); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -61,22 +121,22 @@ func TestRegistry_FilledTag(t *testing.T) {
 func TestRegistry_DifferentTagsSomeTypes(t *testing.T) {
 	t.Parallel()
 
-	key1 := dino.Key{
+	key1 := dino.RegistryKey{
 		Tag:  "",
 		Type: reflect.TypeOf(0),
 	}
 
-	key2 := dino.Key{
+	key2 := dino.RegistryKey{
 		Tag:  "special",
 		Type: reflect.TypeOf(0),
 	}
 
-	key3 := dino.Key{
+	key3 := dino.RegistryKey{
 		Tag:  "another",
 		Type: reflect.TypeOf(0),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	if err := registry.Register(key1, reflect.ValueOf(1)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -121,12 +181,12 @@ func TestRegistry_DifferentTagsSomeTypes(t *testing.T) {
 func TestRegistry_OverwriteWithSomeKeys(t *testing.T) {
 	t.Parallel()
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "duplicate",
 		Type: reflect.TypeOf(0),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	if err := registry.Register(key, reflect.ValueOf(100)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -155,19 +215,40 @@ func TestRegistry_OverwriteWithSomeKeys(t *testing.T) {
 	}
 }
 
-func TestRegistry_KeyTypeNil(t *testing.T) {
+func TestRegistry_RegisterKeyTypeNil(t *testing.T) {
 	t.Parallel()
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "niltype",
 		Type: nil,
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	err := registry.Register(key, reflect.ValueOf(0))
 	if !errors.Is(err, dino.ErrKeyTypeNil) {
 		t.Fatalf("expected ErrKeyTypeNil, got %v", err)
+	}
+}
+
+func TestRegistry_FindKeyTypeNil(t *testing.T) {
+	t.Parallel()
+
+	key := dino.RegistryKey{
+		Tag:  "niltype",
+		Type: nil,
+	}
+
+	registry := new(dino.SyncMapRegistry)
+
+	val, err := registry.Find(key)
+
+	if !errors.Is(err, dino.ErrKeyTypeNil) {
+		t.Fatalf("expected ErrKeyTypeNil, got %v", err)
+	}
+
+	if val != (reflect.Value{}) {
+		t.Fatalf("expected zero reflect.Value, got %v", val)
 	}
 }
 
@@ -192,15 +273,17 @@ func TestRegistry_InvalidValue(t *testing.T) {
 		},
 	}
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "invalid",
 		Type: reflect.TypeOf(0),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := registry.Register(key, tc.val)
 			if !errors.Is(err, dino.ErrInvalidValue) {
 				t.Fatalf("expected ErrInvalidValue, got %v", err)
@@ -212,12 +295,12 @@ func TestRegistry_InvalidValue(t *testing.T) {
 func TestRegistry_ValueNotFound(t *testing.T) {
 	t.Parallel()
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "missing",
 		Type: reflect.TypeOf(""),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	val, err := registry.Find(key)
 	if !errors.Is(err, dino.ErrValueNotFound) {
@@ -232,12 +315,12 @@ func TestRegistry_ValueNotFound(t *testing.T) {
 func TestRegistry_InvalidValueStored(t *testing.T) {
 	t.Parallel()
 
-	key := dino.Key{
+	key := dino.RegistryKey{
 		Tag:  "invalid",
 		Type: reflect.TypeOf(0),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 	registry.MockRegister(key, "this is not a reflect.Value")
 
 	val, err := registry.Find(key)
@@ -255,17 +338,17 @@ func TestRegistry_DifferentTypesSameTag(t *testing.T) {
 
 	tag := "shared"
 
-	key1 := dino.Key{
+	key1 := dino.RegistryKey{
 		Tag:  tag,
 		Type: reflect.TypeOf(0),
 	}
 
-	key2 := dino.Key{
+	key2 := dino.RegistryKey{
 		Tag:  tag,
 		Type: reflect.TypeOf(""),
 	}
 
-	registry := new(dino.Registry)
+	registry := new(dino.SyncMapRegistry)
 
 	if err := registry.Register(key1, reflect.ValueOf(123)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -299,12 +382,12 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	registry := new(dino.Registry)
-	keyChan := make(chan dino.Key, 100)
+	registry := new(dino.SyncMapRegistry)
+	keyChan := make(chan dino.RegistryKey, 100)
 
 	for idx := range 100 {
 		wg.Go(func() {
-			key := dino.Key{
+			key := dino.RegistryKey{
 				Tag:  strconv.Itoa(idx),
 				Type: reflect.TypeOf(idx),
 			}

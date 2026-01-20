@@ -1,44 +1,53 @@
 package dino
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
 )
 
-type DependencyInjector interface {
-	Bind(rt reflect.Type, rv reflect.Value, tags ...string) error
-	Inject(rv reflect.Value) error
-	Invoke(rv reflect.Value) error
-}
+var ErrInvalidInputValue = errors.New("invalid input value")
 
 type Dino struct {
-	di DependencyInjector
-	mu sync.Mutex
+	registry Registry
+	mutex    sync.Mutex
 }
 
 func New() *Dino {
 	return &Dino{
-		di: NewInjector(),
-		mu: sync.Mutex{},
+		registry: new(SyncMapRegistry),
+		mutex:    sync.Mutex{},
 	}
 }
 
-func (d *Dino) WithDI(di DependencyInjector) *Dino {
-	d.di = di
+func (d *Dino) WithRegistry(registry Registry) *Dino {
+	d.registry = registry
 
 	return d
 }
 
 func (d *Dino) Factory(fn any, tags ...string) error {
-	rt := reflect.TypeOf(fn)
+	rv := reflect.ValueOf(fn)
 
-	if !isFunction(rt) {
-		return fmt.Errorf("%w: got %s", ErrExpectedFunction, rt.Kind())
+	if isNil(rv) {
+		return fmt.Errorf("%w: factory function cannot be nil", ErrInvalidInputValue)
 	}
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	rt := rv.Type()
+
+	if !isFunction(rt) {
+		return fmt.Errorf(
+			"%w: factory expected a function, got %v",
+			ErrInvalidInputValue,
+			rt.Kind(),
+		)
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	injector := NewInjector(d.registry)
 
 	for idx := range rt.NumOut() {
 		outType := rt.Out(idx)
@@ -46,7 +55,7 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 			continue
 		}
 
-		if err := d.di.Bind(outType, reflect.ValueOf(fn), tags...); err != nil {
+		if err := injector.Bind(outType, reflect.ValueOf(fn), tags...); err != nil {
 			return fmt.Errorf("failed to bind factory function output: %w", err)
 		}
 	}
@@ -55,10 +64,18 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 }
 
 func (d *Dino) Singleton(val any, tags ...string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	rv := reflect.ValueOf(val)
 
-	if err := d.di.Bind(reflect.TypeOf(val), reflect.ValueOf(val), tags...); err != nil {
+	if isNil(rv) {
+		return fmt.Errorf("%w: singleton value cannot be nil", ErrInvalidValue)
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	injector := NewInjector(d.registry)
+
+	if err := injector.Bind(reflect.TypeOf(val), rv, tags...); err != nil {
 		return fmt.Errorf("failed to bind singleton: %w", err)
 	}
 
@@ -66,23 +83,62 @@ func (d *Dino) Singleton(val any, tags ...string) error {
 }
 
 func (d *Dino) Inject(target any) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	rv := reflect.ValueOf(target)
 
-	if err := d.di.Inject(reflect.ValueOf(target)); err != nil {
+	if isNil(rv) {
+		return fmt.Errorf("%w: inject target cannot be nil", ErrInvalidInputValue)
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	injector := NewInjector(d.registry)
+
+	if err := injector.Inject(rv); err != nil {
 		return fmt.Errorf("failed to inject dependencies: %w", err)
 	}
 
 	return nil
 }
 
-func (d *Dino) Invoke(fn any) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+func (d *Dino) Invoke(fn any) ([]any, error) {
+	rv := reflect.ValueOf(fn)
 
-	if err := d.di.Invoke(reflect.ValueOf(fn)); err != nil {
-		return fmt.Errorf("failed to invoke function: %w", err)
+	if isNil(rv) {
+		return nil, fmt.Errorf("%w: function to invoke cannot be nil", ErrInvalidInputValue)
 	}
 
-	return nil
+	rt := rv.Type()
+
+	if !isFunction(rt) {
+		return nil, fmt.Errorf(
+			"%w: invoke expected a function, got %v",
+			ErrInvalidInputValue,
+			rt.Kind(),
+		)
+	}
+
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
+	injector := NewInjector(d.registry)
+
+	values, err := injector.Invoke(rv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to invoke function: %w", err)
+	}
+
+	results := make([]any, len(values))
+
+	for idx, val := range values {
+		if !val.CanInterface() {
+			results[idx] = nil
+
+			continue
+		}
+
+		results[idx] = val.Interface()
+	}
+
+	return results, nil
 }

@@ -13,21 +13,19 @@ var (
 )
 
 type Injector struct {
-	registry *Registry
-	stack    map[Key]int32
+	registry Registry
+	stack    map[RegistryKey]int32
 }
 
-func NewInjector() *Injector {
-	return &Injector{
-		registry: new(Registry),
-		stack:    make(map[Key]int32),
+func NewInjector(registry Registry) *Injector {
+	if registry == nil {
+		registry = new(SyncMapRegistry)
 	}
-}
 
-func (i *Injector) WithRegistry(registry *Registry) *Injector {
-	i.registry = registry
-
-	return i
+	return &Injector{
+		registry: registry,
+		stack:    make(map[RegistryKey]int32),
+	}
 }
 
 func (i *Injector) Bind(rt reflect.Type, rv reflect.Value, tags ...string) error {
@@ -36,7 +34,7 @@ func (i *Injector) Bind(rt reflect.Type, rv reflect.Value, tags ...string) error
 	}
 
 	for _, tag := range tags {
-		key := Key{
+		key := RegistryKey{
 			Tag:  tag,
 			Type: rt,
 		}
@@ -77,7 +75,7 @@ func (i *Injector) Inject(rv reflect.Value) error {
 		// Get tag value for "inject"
 		tag := fieldStruct.Tag.Get("inject")
 
-		key := Key{
+		key := RegistryKey{
 			Tag:  tag,
 			Type: fieldType,
 		}
@@ -107,54 +105,28 @@ func (i *Injector) Inject(rv reflect.Value) error {
 	return nil
 }
 
-func (i *Injector) Invoke(rv reflect.Value) error {
+func (i *Injector) Invoke(rv reflect.Value) ([]reflect.Value, error) {
 	rt := rv.Type()
 
 	if !isFunction(rt) {
-		return fmt.Errorf("%w: got %s", ErrExpectedFunction, rt.Kind())
+		return nil, fmt.Errorf("%w: got %s", ErrExpectedFunction, rt.Kind())
 	}
 
 	args, err := i.Prepare(rt)
 	if err != nil {
-		return fmt.Errorf("prepare function execution arguments: %w", err)
+		return nil, fmt.Errorf("prepare function execution arguments: %w", err)
 	}
 
-	values := rv.Call(args)
-
-	for _, val := range values {
-		if err := asError(val); err != nil {
-			return fmt.Errorf("function execution returned error: %w", err)
-		}
-
-		// Skip nil values
-		if isNil(val) {
-			continue
-		}
-
-		key := Key{
-			Tag:  "",
-			Type: val.Type(),
-		}
-
-		if err := i.registry.Register(key, val); err != nil {
-			return fmt.Errorf(
-				"failed to add value of type %s to registry: %w",
-				val.Type().String(),
-				err,
-			)
-		}
-	}
-
-	return nil
+	return rv.Call(args), nil
 }
 
-func (i *Injector) Resolve(key Key) (reflect.Value, error) {
-	resVal := reflect.Zero(key.Type)
-
+func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	rv, err := i.registry.Find(key)
 	if err != nil {
-		return resVal, fmt.Errorf("resolve type %s with tag '%s': %w", key.Type, key.Tag, err)
+		return rv, fmt.Errorf("resolve type %s with tag '%s': %w", key.Type, key.Tag, err)
 	}
+
+	resVal := reflect.Zero(key.Type)
 
 	// Detect circular dependencies
 	if i.stack[key] > 0 {
@@ -182,7 +154,7 @@ func (i *Injector) Resolve(key Key) (reflect.Value, error) {
 		if err != nil {
 			return resVal, fmt.Errorf(
 				"prepare factory function arguments of type %s with tag '%s': %w",
-				key.Type.String(),
+				key.Type,
 				key.Tag,
 				err,
 			)
@@ -205,15 +177,10 @@ func (i *Injector) Resolve(key Key) (reflect.Value, error) {
 				continue
 			}
 
-			valKey := Key{
-				Tag:  key.Tag,
-				Type: val.Type(),
-			}
-
-			if err := i.registry.Register(valKey, val); err != nil {
+			if err := i.Bind(val.Type(), val, key.Tag); err != nil {
 				return resVal, fmt.Errorf(
-					"add value of type %s with tag '%s' to registry: %w",
-					val.Type().String(),
+					"bind factory function return value of type %s with tag '%s': %w",
+					val.Type(),
 					key.Tag,
 					err,
 				)
@@ -243,7 +210,7 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 	for idx := range num {
 		rt := fn.In(idx)
 
-		key := Key{
+		key := RegistryKey{
 			Tag:  "",
 			Type: rt,
 		}
@@ -256,14 +223,14 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 		}
 
 		if !errors.Is(err, ErrValueNotFound) {
-			return nil, fmt.Errorf("resolve argument of type %s: %w", rt.String(), err)
+			return nil, fmt.Errorf("resolve argument of type %s: %w", rt, err)
 		}
 
 		rv = i.Create(rt)
 
 		if err := i.Inject(rv); err != nil {
 			if !errors.Is(err, ErrExpectedStruct) {
-				return nil, fmt.Errorf("inject argument of type %s: %w", rt.String(), err)
+				return nil, fmt.Errorf("inject argument of type %s: %w", rt, err)
 			}
 		}
 

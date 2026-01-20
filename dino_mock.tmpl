@@ -7,6 +7,10 @@ import (
 	"reflect"
 )
 
+func (d *Dino) MockRegistry() Registry {
+	return d.registry
+}
+
 func (r *Registry) MockRegister(key Key, value any) {
 	r.sm.Store(key, value)
 }
