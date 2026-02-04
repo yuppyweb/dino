@@ -25,6 +25,12 @@ tasks:
     desc: Run tests with coverage
     ignore_error: true
 
+  test-1000:
+    cmds:
+      - go test --count=1000 -failfast
+    desc: Run tests 1000 times to catch flakiness
+    ignore_error: true
+
   vuln:
     cmds:
       - govulncheck -show=color -test ./...

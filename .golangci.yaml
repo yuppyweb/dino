@@ -138,6 +138,7 @@ linters:
           - err113
           - funlen
           - exhaustruct
+          - dupl
         path: _test.go
     paths:
       - third_party$

@@ -1,3 +1,6 @@
+// Package dino provides a simple dependency injection container for Go.
+// It allows registering factories and singletons, injecting dependencies into structs,
+// and invoking functions with automatic dependency resolution.
 package dino
 
 import (
@@ -9,11 +12,16 @@ import (
 
 var ErrInvalidInputValue = errors.New("invalid input value")
 
+// Is the main struct for the Dino dependency injection container.
 type Dino struct {
+	// registry holds the registered dependencies.
 	registry Registry
-	mutex    sync.Mutex
+
+	// mutex is used to ensure thread-safe operations.
+	mutex sync.Mutex
 }
 
+// Creates a new instance of the Dino dependency injection container.
 func New() *Dino {
 	return &Dino{
 		registry: new(SyncMapRegistry),
@@ -21,12 +29,14 @@ func New() *Dino {
 	}
 }
 
+// Sets a custom registry for the Dino container.
 func (d *Dino) WithRegistry(registry Registry) *Dino {
 	d.registry = registry
 
 	return d
 }
 
+// Registers a factory function that produces instances of dependencies.
 func (d *Dino) Factory(fn any, tags ...string) error {
 	rv := reflect.ValueOf(fn)
 
@@ -63,11 +73,12 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 	return nil
 }
 
+// Registers a singleton instance of a dependency.
 func (d *Dino) Singleton(val any, tags ...string) error {
 	rv := reflect.ValueOf(val)
 
 	if isNil(rv) {
-		return fmt.Errorf("%w: singleton value cannot be nil", ErrInvalidValue)
+		return fmt.Errorf("%w: singleton value cannot be nil", ErrInvalidInputValue)
 	}
 
 	d.mutex.Lock()
@@ -82,6 +93,7 @@ func (d *Dino) Singleton(val any, tags ...string) error {
 	return nil
 }
 
+// Injects dependencies into the provided target struct.
 func (d *Dino) Inject(target any) error {
 	rv := reflect.ValueOf(target)
 
@@ -101,6 +113,7 @@ func (d *Dino) Inject(target any) error {
 	return nil
 }
 
+// Invokes a function with automatic dependency resolution.
 func (d *Dino) Invoke(fn any) ([]any, error) {
 	rv := reflect.ValueOf(fn)
 
