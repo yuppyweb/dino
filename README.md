@@ -6,7 +6,7 @@ A lightweight and simple dependency injection container for Go. Dino provides a 
 
 - 🎯 **Simple API**: Easy-to-use methods for registering and resolving dependencies
 - 🏭 **Factory Functions**: Register factory functions that create dependencies on demand
-- 📦 **Singletons**: Register singleton instances that are created once and reused
+- ♻️ **Singletons**: Register singleton instances that are created once and reused
 - 🏷️ **Tagged Dependencies**: Support for multiple implementations of the same type using tags
 - 🔗 **Automatic Injection**: Inject dependencies into structs using the `inject` tag
 - 🪆 **Nested Injection**: Automatically resolves nested struct dependencies
@@ -15,7 +15,7 @@ A lightweight and simple dependency injection container for Go. Dino provides a 
 - 🔄 **Circular Dependency Detection**: Catches circular dependencies before they cause issues
 - ⚡ **Thread-Safe**: Safe concurrent access to the container
 
-## Installation
+## 📦 Installation
 
 ```bash
 go get github.com/yuppyweb/dino
@@ -62,7 +62,7 @@ func main() {
 
 ## 📚 Usage
 
-### Registering Dependencies
+### Registering Dependencies 📝
 
 #### Singleton - Register Once, Use Many Times 📌
 
@@ -517,24 +517,44 @@ di.Factory(func(logger Logger) *Service {
 
 ## 🔗 Examples
 
-Comprehensive examples are available in the [examples directory](./dino/examples/). To run examples:
+Comprehensive examples are available in separate directories within the [examples directory](./examples/). Each example is a standalone Go module that can be run independently.
 
-```bash
-go run dino/examples/01_basic_usage.go
-go run dino/examples/02_multiple_dependencies.go
-go run dino/examples/03_tagged_dependencies.go
-```
+1. **01_basic_usage** - Basic DI setup
+   - Simple dependency registration and injection
+   - `go run ./examples/01_basic_usage`
 
-Available examples:
-- **01_basic_usage.go** - Basic DI setup
-- **02_multiple_dependencies.go** - Multiple services and dependency chains
-- **03_tagged_dependencies.go** - Using tags for multiple instances
-- **04_dependency_chain.go** - Complex dependency resolution
-- **05_factory_vs_set.go** - Factory vs Singleton patterns
-- **06_execute_pattern.go** - Function invocation with `Invoke()`
-- **07_real_world_app.go** - Real-world application example
-- **08_lifecycle_management.go** - Managing component lifecycle
-- **09_interface_composition.go** - Using interfaces for loose coupling
+2. **02_multiple_dependencies** - Multiple services and dependency chains
+   - Chaining multiple dependencies together
+   - `go run ./examples/02_multiple_dependencies`
+
+3. **03_tagged_dependencies** - Using tags for multiple implementations
+   - Registering multiple instances of the same type with different tags
+   - `go run ./examples/03_tagged_dependencies`
+
+4. **04_dependency_chain** - Complex dependency resolution
+   - Deep dependency chains with factory functions
+   - `go run ./examples/04_dependency_chain`
+
+5. **05_factory_vs_singleton** - Factory vs Singleton patterns
+   - Understanding the difference between Factory and Singleton
+   - Verifying caching behavior
+   - `go run ./examples/05_factory_vs_singleton`
+
+6. **06_invoke_pattern** - Function invocation with automatic dependency resolution
+   - Using `Invoke()` to automatically inject dependencies into functions
+   - `go run ./examples/06_invoke_pattern`
+
+7. **07_real_world_app** - Real-world application example
+   - Complete web API structure with repositories, services, and handlers
+   - `go run ./examples/07_real_world_app`
+
+8. **08_lifecycle_management** - Managing component lifecycle
+   - Resource initialization and shutdown patterns
+   - `go run ./examples/08_lifecycle_management`
+
+9. **09_interface_composition** - Using interfaces for loose coupling
+   - Interface-based dependency injection for better testability
+   - `go run ./examples/09_interface_composition`
 
 ## 🤝 Contributing
 
