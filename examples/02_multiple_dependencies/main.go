@@ -7,7 +7,7 @@ import (
 	"github.com/yuppyweb/dino"
 )
 
-// Define types
+// Define types.
 type Config struct {
 	DatabaseURL string
 	Port        int
@@ -29,8 +29,9 @@ type Repository struct {
 }
 
 func (r *Repository) Find(id string) string {
-	r.Logger.Info(fmt.Sprintf("Finding record: %s", id))
-	return fmt.Sprintf("Record from %s", r.DB.URL)
+	r.Logger.Info("Finding record: " + id)
+
+	return "Record from " + r.DB.URL
 }
 
 type Service struct {
@@ -40,10 +41,11 @@ type Service struct {
 
 func (s *Service) GetData(id string) string {
 	s.Logger.Info("Fetching data")
+
 	return s.Repo.Find(id)
 }
 
-// Example demonstrating multiple dependencies and dependency chains
+// Example demonstrating multiple dependencies and dependency chains.
 func main() {
 	di := dino.New()
 

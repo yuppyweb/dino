@@ -7,7 +7,7 @@ import (
 	"github.com/yuppyweb/dino"
 )
 
-// Define a simple service
+// Define a simple service.
 type Database struct {
 	ConnectionString string
 }
@@ -16,7 +16,7 @@ type UserService struct {
 	DB *Database
 }
 
-// Basic example demonstrating simple dependency registration and injection
+// Basic example demonstrating simple dependency registration and injection.
 func main() {
 	// Create a new DI container
 	di := dino.New()

@@ -7,7 +7,7 @@ import (
 	"github.com/yuppyweb/dino"
 )
 
-// Define interfaces
+// Define interfaces.
 type Logger interface {
 	Info(msg string)
 	Error(msg string)
@@ -18,7 +18,7 @@ type Storage interface {
 	Load(key string) (string, error)
 }
 
-// Implement interfaces
+// Implement interfaces.
 type ConsoleLogger struct{}
 
 func (l *ConsoleLogger) Info(msg string) {
@@ -39,6 +39,7 @@ func NewMemoryStorage() *MemoryStorage {
 
 func (s *MemoryStorage) Save(key, value string) error {
 	s.data[key] = value
+
 	return nil
 }
 
@@ -46,26 +47,29 @@ func (s *MemoryStorage) Load(key string) (string, error) {
 	if val, ok := s.data[key]; ok {
 		return val, nil
 	}
+
 	return "", fmt.Errorf("key not found: %s", key)
 }
 
-// Define service
+// Define service.
 type UserService struct {
 	Logger  Logger
 	Storage Storage
 }
 
 func (s *UserService) SaveUser(id, name string) error {
-	s.Logger.Info(fmt.Sprintf("Saving user: %s", name))
+	s.Logger.Info("Saving user: " + name)
+
 	return s.Storage.Save(id, name)
 }
 
 func (s *UserService) GetUser(id string) (string, error) {
-	s.Logger.Info(fmt.Sprintf("Loading user: %s", id))
+	s.Logger.Info("Loading user: " + id)
+
 	return s.Storage.Load(id)
 }
 
-// Example demonstrating interface-based composition for loose coupling
+// Example demonstrating interface-based composition for loose coupling.
 func main() {
 	di := dino.New()
 
@@ -110,15 +114,16 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		fmt.Printf("User 1: %s\n", name)
 
 		name, err = service.GetUser("user-2")
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		fmt.Printf("User 2: %s\n", name)
 	})
-
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -16,7 +16,7 @@ type App struct {
 	ReplicaDB *Database `inject:"replica"`
 }
 
-// Example demonstrating tagged dependencies for multiple implementations
+// Example demonstrating tagged dependencies for multiple implementations.
 func main() {
 	di := dino.New()
 

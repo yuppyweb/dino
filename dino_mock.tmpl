@@ -7,30 +7,37 @@ import (
 	"reflect"
 )
 
+// Mock functions for testing purposes.
 func (d *Dino) MockRegistry() Registry {
 	return d.registry
 }
 
-func (r *Registry) MockRegister(key Key, value any) {
+// Allows you to directly store a value in the registry for testing purposes.
+func (r *SyncMapRegistry) MockRegister(key RegistryKey, value any) {
 	r.sm.Store(key, value)
 }
 
+// Checks if the given type is a struct.
 func MockIsStruct(rt reflect.Type) bool {
 	return isStruct(rt)
 }
 
+// Checks if the given type is a pointer to a struct.
 func MockIsPointerToStruct(rt reflect.Type) bool {
 	return isPointerToStruct(rt)
 }
 
+// Checks if the given type is a function.
 func MockIsFunction(rt reflect.Type) bool {
 	return isFunction(rt)
 }
 
+// Checks if the given reflect.Value is nil or invalid.
 func MockIsNil(rv reflect.Value) bool {
 	return isNil(rv)
 }
 
+// Converts a reflect.Value to an error if it implements the error interface and is not nil.
 func MockAsError(rv reflect.Value) error {
 	return asError(rv)
 }

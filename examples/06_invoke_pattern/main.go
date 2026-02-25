@@ -15,7 +15,7 @@ type Database struct {
 	URL string
 }
 
-// Example demonstrating Invoke for function execution
+// Example demonstrating Invoke for function execution.
 func main() {
 	di := dino.New()
 
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	connectDB := func(db *Database) string {
-		return fmt.Sprintf("Connected to %s", db.URL)
+		return "Connected to " + db.URL
 	}
 
 	getStatus := func(cfg *Config, db *Database) string {
@@ -48,17 +48,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("Result 1: %v\n", results1[0])
 
 	results2, err := di.Invoke(connectDB)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("Result 2: %v\n", results2[0])
 
 	results3, err := di.Invoke(getStatus)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("Result 3: %v\n", results3[0])
 }

@@ -15,7 +15,7 @@ type Logger struct {
 	Name string
 }
 
-// Example demonstrating Factory vs Singleton patterns
+// Example demonstrating Factory vs Singleton patterns.
 func main() {
 	di := dino.New()
 
@@ -24,6 +24,7 @@ func main() {
 	if err := di.Factory(func() *RequestID {
 		id := &RequestID{ID: "req-123"}
 		fmt.Printf("Factory creating new RequestID: %s\n", id.ID)
+
 		return id
 	}); err != nil {
 		log.Fatal(err)
@@ -32,6 +33,7 @@ func main() {
 	// Use Singleton for shared instances
 	logger := &Logger{Name: "MyApp"}
 	fmt.Printf("Singleton registering Logger: %s\n", logger.Name)
+
 	if err := di.Singleton(logger); err != nil {
 		log.Fatal(err)
 	}

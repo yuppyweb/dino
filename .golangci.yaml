@@ -141,9 +141,9 @@ linters:
           - dupl
         path: _test.go
     paths:
-      - third_party$
-      - builtin$
-      - examples$
+      - third_party
+      - builtin
+      - examples
 formatters:
   enable:
     - gci

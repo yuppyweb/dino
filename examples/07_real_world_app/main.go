@@ -7,7 +7,7 @@ import (
 	"github.com/yuppyweb/dino"
 )
 
-// Define domain models
+// Define domain models.
 type Config struct {
 	DatabaseURL string
 	Port        int
@@ -35,7 +35,8 @@ type UserRepository struct {
 
 func (r *UserRepository) GetUserByID(id string) *User {
 	r.Logger.Info(fmt.Sprintf("Fetching user %s from %s", id, r.DB.URL))
-	return &User{ID: id, Name: fmt.Sprintf("User-%s", id)}
+
+	return &User{ID: id, Name: "User-" + id}
 }
 
 type UserService struct {
@@ -45,6 +46,7 @@ type UserService struct {
 
 func (s *UserService) GetUser(id string) *User {
 	s.Logger.Info(fmt.Sprintf("Service: GetUser(%s)", id))
+
 	return s.Repo.GetUserByID(id)
 }
 
@@ -59,7 +61,7 @@ func (h *UserHandler) HandleGetUser(id string) {
 	fmt.Printf("Response: User{ID: %s, Name: %s}\n", user.ID, user.Name)
 }
 
-// Real-world example: building a web API with DI
+// Real-world example: building a web API with DI.
 func main() {
 	di := dino.New()
 

@@ -1,6 +1,6 @@
 module github.com/yuppyweb/dino
 
-go 1.25.4
+go 1.26.0
 
 tool (
 	github.com/go-task/task/v3/cmd/task

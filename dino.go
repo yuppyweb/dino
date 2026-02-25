@@ -14,10 +14,10 @@ var ErrInvalidInputValue = errors.New("invalid input value")
 
 // Is the main struct for the Dino dependency injection container.
 type Dino struct {
-	// registry holds the registered dependencies.
+	// Registry holds the registered dependencies.
 	registry Registry
 
-	// mutex is used to ensure thread-safe operations.
+	// Mutex is used to ensure thread-safe operations.
 	mutex sync.Mutex
 }
 
@@ -57,11 +57,11 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
+	// Create a new injector to resolve the factory function's output types and bind them to the registry
 	injector := NewInjector(d.registry)
 
-	for idx := range rt.NumOut() {
-		outType := rt.Out(idx)
-		if outType.Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+	for outType := range rt.Outs() {
+		if outType.Implements(reflect.TypeFor[error]()) {
 			continue
 		}
 

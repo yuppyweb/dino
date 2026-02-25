@@ -75,7 +75,7 @@ func TestRegistry_EmptyTag(t *testing.T) {
 
 	key := dino.RegistryKey{
 		Tag:  "",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -99,7 +99,7 @@ func TestRegistry_FilledTag(t *testing.T) {
 
 	key := dino.RegistryKey{
 		Tag:  "test",
-		Type: reflect.TypeOf(""),
+		Type: reflect.TypeFor[string](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -123,17 +123,17 @@ func TestRegistry_DifferentTagsSomeTypes(t *testing.T) {
 
 	key1 := dino.RegistryKey{
 		Tag:  "",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	key2 := dino.RegistryKey{
 		Tag:  "special",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	key3 := dino.RegistryKey{
 		Tag:  "another",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -183,7 +183,7 @@ func TestRegistry_OverwriteWithSomeKeys(t *testing.T) {
 
 	key := dino.RegistryKey{
 		Tag:  "duplicate",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -275,7 +275,7 @@ func TestRegistry_InvalidValue(t *testing.T) {
 
 	key := dino.RegistryKey{
 		Tag:  "invalid",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -297,7 +297,7 @@ func TestRegistry_ValueNotFound(t *testing.T) {
 
 	key := dino.RegistryKey{
 		Tag:  "missing",
-		Type: reflect.TypeOf(""),
+		Type: reflect.TypeFor[string](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -317,7 +317,7 @@ func TestRegistry_InvalidValueStored(t *testing.T) {
 
 	key := dino.RegistryKey{
 		Tag:  "invalid",
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -340,12 +340,12 @@ func TestRegistry_DifferentTypesSameTag(t *testing.T) {
 
 	key1 := dino.RegistryKey{
 		Tag:  tag,
-		Type: reflect.TypeOf(0),
+		Type: reflect.TypeFor[int](),
 	}
 
 	key2 := dino.RegistryKey{
 		Tag:  tag,
-		Type: reflect.TypeOf(""),
+		Type: reflect.TypeFor[string](),
 	}
 
 	registry := new(dino.SyncMapRegistry)
@@ -389,7 +389,7 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 		wg.Go(func() {
 			key := dino.RegistryKey{
 				Tag:  strconv.Itoa(idx),
-				Type: reflect.TypeOf(idx),
+				Type: reflect.TypeFor[int](),
 			}
 
 			if err := registry.Register(key, reflect.ValueOf(idx)); err != nil {

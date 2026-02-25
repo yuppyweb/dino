@@ -12,11 +12,18 @@ var (
 	ErrCircularDependency = errors.New("circular dependency detected")
 )
 
+// Is responsible for managing dependencies, injecting values into structs,
+// and invoking functions with resolved arguments.
 type Injector struct {
+	// The registry used to store and resolve dependencies.
 	registry Registry
-	stack    map[RegistryKey]int32
+
+	// A stack to track currently resolving keys for circular dependency detection.
+	stack map[RegistryKey]struct{}
 }
 
+// Creates a new Injector with the provided registry.
+// If no registry is provided, it uses a default SyncMapRegistry.
 func NewInjector(registry Registry) *Injector {
 	if registry == nil {
 		registry = new(SyncMapRegistry)
@@ -24,10 +31,11 @@ func NewInjector(registry Registry) *Injector {
 
 	return &Injector{
 		registry: registry,
-		stack:    make(map[RegistryKey]int32),
+		stack:    make(map[RegistryKey]struct{}),
 	}
 }
 
+// Binds a value to the registry for the specified type and optional tags.
 func (i *Injector) Bind(rt reflect.Type, rv reflect.Value, tags ...string) error {
 	if len(tags) == 0 {
 		tags = []string{""}
@@ -47,6 +55,7 @@ func (i *Injector) Bind(rt reflect.Type, rv reflect.Value, tags ...string) error
 	return nil
 }
 
+// Injects dependencies into the provided struct value based on the "inject" tags and registered values.
 func (i *Injector) Inject(rv reflect.Value) error {
 	rt := rv.Type()
 
@@ -87,12 +96,15 @@ func (i *Injector) Inject(rv reflect.Value) error {
 			continue
 		}
 
+		// If the error is not ErrValueNotFound, return it
 		if !errors.Is(err, ErrValueNotFound) {
 			return fmt.Errorf("resolve field %s: %w", fieldStruct.Name, err)
 		}
 
+		// If value not found, create a new instance and inject it
 		val = i.Create(fieldType)
 
+		// If the field is a struct or pointer to struct, inject dependencies into it
 		if err := i.Inject(val); err != nil {
 			if !errors.Is(err, ErrExpectedStruct) {
 				return fmt.Errorf("inject field %s: %w", fieldStruct.Name, err)
@@ -105,6 +117,7 @@ func (i *Injector) Inject(rv reflect.Value) error {
 	return nil
 }
 
+// Invokes a function with arguments resolved from the registry. The function must be passed as a reflect.Value.
 func (i *Injector) Invoke(rv reflect.Value) ([]reflect.Value, error) {
 	rt := rv.Type()
 
@@ -112,6 +125,7 @@ func (i *Injector) Invoke(rv reflect.Value) ([]reflect.Value, error) {
 		return nil, fmt.Errorf("%w: got %s", ErrExpectedFunction, rt.Kind())
 	}
 
+	// Prepare arguments for the function call
 	args, err := i.Prepare(rt)
 	if err != nil {
 		return nil, fmt.Errorf("prepare function execution arguments: %w", err)
@@ -120,6 +134,8 @@ func (i *Injector) Invoke(rv reflect.Value) ([]reflect.Value, error) {
 	return rv.Call(args), nil
 }
 
+// Resolves a value from the registry based on the provided key.
+// If the registered value is a factory function, it calls the function to get the actual value.
 func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	rv, err := i.registry.Find(key)
 	if err != nil {
@@ -129,7 +145,7 @@ func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	resVal := reflect.Zero(key.Type)
 
 	// Detect circular dependencies
-	if i.stack[key] > 0 {
+	if _, exists := i.stack[key]; exists {
 		return resVal, fmt.Errorf(
 			"%w: type %s with tag '%s'",
 			ErrCircularDependency,
@@ -139,11 +155,11 @@ func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	}
 
 	// Mark as being resolved
-	i.stack[key]++
+	i.stack[key] = struct{}{}
 
 	defer func() {
 		// Unmark after resolution
-		i.stack[key]--
+		delete(i.stack, key)
 	}()
 
 	rt := rv.Type()
@@ -160,8 +176,10 @@ func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 			)
 		}
 
+		// Call the factory function
 		values := rv.Call(args)
 
+		// Process the returned values from the factory function
 		for _, val := range values {
 			if err := asError(val); err != nil {
 				return resVal, fmt.Errorf(
@@ -177,6 +195,7 @@ func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 				continue
 			}
 
+			// Bind the returned value to the registry for future resolutions
 			if err := i.Bind(val.Type(), val, key.Tag); err != nil {
 				return resVal, fmt.Errorf(
 					"bind factory function return value of type %s with tag '%s': %w",
@@ -198,6 +217,8 @@ func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	return rv, nil
 }
 
+// Prepares the arguments for a function call by resolving them from the registry
+// or creating new instances if not found.
 func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 	if !isFunction(fn) {
 		return nil, fmt.Errorf("%w: got %s", ErrExpectedFunction, fn.Kind())
@@ -207,6 +228,7 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 	num := fn.NumIn()
 	arg := make([]reflect.Value, num)
 
+	// Iterate over function parameters
 	for idx := range num {
 		rt := fn.In(idx)
 
@@ -215,6 +237,7 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 			Type: rt,
 		}
 
+		// Try to resolve the argument from the registry
 		rv, err := i.Resolve(key)
 		if err == nil {
 			arg[idx] = rv
@@ -222,12 +245,15 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 			continue
 		}
 
+		// If the error is not ErrValueNotFound, return it
 		if !errors.Is(err, ErrValueNotFound) {
 			return nil, fmt.Errorf("resolve argument of type %s: %w", rt, err)
 		}
 
+		// If value not found, create a new instance and inject it
 		rv = i.Create(rt)
 
+		// If the argument is a struct or pointer to struct, inject dependencies into it
 		if err := i.Inject(rv); err != nil {
 			if !errors.Is(err, ErrExpectedStruct) {
 				return nil, fmt.Errorf("inject argument of type %s: %w", rt, err)
@@ -240,6 +266,9 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 	return arg, nil
 }
 
+// Creates a new instance of the specified type.
+// For complex types like slices, maps, channels, pointers, and functions,
+// it creates appropriate zero values or factory functions.
 func (i *Injector) Create(rt reflect.Type) reflect.Value {
 	switch rt.Kind() {
 	case reflect.Slice:

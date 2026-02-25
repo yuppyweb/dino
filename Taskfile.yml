@@ -18,7 +18,7 @@ tasks:
 
   test:
     cmds:
-      - go test --count=1 -v -coverprofile cover.out ./...
+      - go test --count=1 -v -coverprofile cover.out $(go list ./... | grep -v /examples)
       - go tool cover -html cover.out -o cover.html
       - go tool cover -func cover.out
       - rm cover.out
@@ -27,7 +27,7 @@ tasks:
 
   test-1000:
     cmds:
-      - go test --count=1000 -failfast
+      - go test --count=1000 -failfast $(go list ./... | grep -v /examples)
     desc: Run tests 1000 times to catch flakiness
     ignore_error: true
 
