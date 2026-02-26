@@ -1,0 +1,38 @@
+version: '3'
+
+tasks:
+  gen:
+    cmds:
+      - go generate ./...
+    desc: Generate code
+
+  fix:
+    cmds:
+      - golangci-lint run --fix --color=always 
+    desc: Automatically fix linting issues
+
+  lint:
+    cmds:
+      - golangci-lint run --color=always
+    desc: Run golangci-lint on the codebase
+
+  test:
+    cmds:
+      - go test --count=1 -v -coverprofile cover.out $(go list ./... | grep -v /examples)
+      - go tool cover -html cover.out -o cover.html
+      - go tool cover -func cover.out
+      - rm cover.out
+    desc: Run tests with coverage
+    ignore_error: true
+
+  test-1000:
+    cmds:
+      - go test --count=1000 -failfast $(go list ./... | grep -v /examples)
+    desc: Run tests 1000 times to catch flakiness
+    ignore_error: true
+
+  vuln:
+    cmds:
+      - govulncheck -show=color -test ./...
+    desc: Run Go vulnerability checker
+    

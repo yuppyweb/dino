@@ -1,0 +1,6 @@
+.git
+.idea
+.vscode
+.DS_Store
+cover.*
+*_mock.go
