@@ -12,16 +12,13 @@ import (
 
 var ErrInvalidInputValue = errors.New("invalid input value")
 
-// Is the main struct for the Dino dependency injection container.
+// Dino is the main dependency injection container.
 type Dino struct {
-	// Registry holds the registered dependencies.
 	registry Registry
-
-	// Mutex is used to ensure thread-safe operations.
-	mutex sync.Mutex
+	mutex    sync.Mutex
 }
 
-// Creates a new instance of the Dino dependency injection container.
+// New creates a new instance of the Dino dependency injection container.
 func New() *Dino {
 	return &Dino{
 		registry: new(SyncMapRegistry),
@@ -29,14 +26,17 @@ func New() *Dino {
 	}
 }
 
-// Sets a custom registry for the Dino container.
+// WithRegistry sets a custom registry for the Dino container.
 func (d *Dino) WithRegistry(registry Registry) *Dino {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	d.registry = registry
 
 	return d
 }
 
-// Registers a factory function that produces instances of dependencies.
+// Factory registers a factory function that produces instances of dependencies.
 func (d *Dino) Factory(fn any, tags ...string) error {
 	rv := reflect.ValueOf(fn)
 
@@ -73,7 +73,7 @@ func (d *Dino) Factory(fn any, tags ...string) error {
 	return nil
 }
 
-// Registers a singleton instance of a dependency.
+// Singleton registers a singleton instance of a dependency.
 func (d *Dino) Singleton(val any, tags ...string) error {
 	rv := reflect.ValueOf(val)
 
@@ -93,7 +93,7 @@ func (d *Dino) Singleton(val any, tags ...string) error {
 	return nil
 }
 
-// Injects dependencies into the provided target struct.
+// Inject resolves and injects dependencies into the provided target struct.
 func (d *Dino) Inject(target any) error {
 	rv := reflect.ValueOf(target)
 
@@ -113,7 +113,7 @@ func (d *Dino) Inject(target any) error {
 	return nil
 }
 
-// Invokes a function with automatic dependency resolution.
+// Invoke calls a function with automatic dependency resolution.
 func (d *Dino) Invoke(fn any) ([]any, error) {
 	rv := reflect.ValueOf(fn)
 
@@ -144,12 +144,6 @@ func (d *Dino) Invoke(fn any) ([]any, error) {
 	results := make([]any, len(values))
 
 	for idx, val := range values {
-		if !val.CanInterface() {
-			results[idx] = nil
-
-			continue
-		}
-
 		results[idx] = val.Interface()
 	}
 

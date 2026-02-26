@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestDino_FactoryNilFunction(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInputValue, got %v", err)
 	}
 
-	if !contains(err.Error(), "factory function cannot be nil") {
+	if !strings.Contains(err.Error(), "factory function cannot be nil") {
 		t.Fatalf(
 			"expected error message to contain 'factory function cannot be nil', got %s",
 			err.Error(),
@@ -63,7 +64,7 @@ func TestDino_FactoryNotFunction(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInputValue, got %v", err)
 	}
 
-	if !contains(err.Error(), "factory expected a function") {
+	if !strings.Contains(err.Error(), "factory expected a function") {
 		t.Fatalf(
 			"expected error message to contain 'factory expected a function', got %s",
 			err.Error(),
@@ -373,11 +374,11 @@ func TestDino_FactoryBindError(t *testing.T) {
 		t.Fatalf("expected error from Factory, got nil")
 	}
 
-	if !contains(err.Error(), "some bind error") {
+	if !strings.Contains(err.Error(), "some bind error") {
 		t.Fatalf("expected error message to contain 'some bind error', got %s", err.Error())
 	}
 
-	if !contains(err.Error(), "failed to bind factory function output") {
+	if !strings.Contains(err.Error(), "failed to bind factory function output") {
 		t.Fatalf(
 			"expected error message to contain 'failed to bind factory function output', got %s",
 			err.Error(),
@@ -599,7 +600,7 @@ func TestDino_SingletonNilValue(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInputValue, got %v", err)
 	}
 
-	if !contains(err.Error(), "singleton value cannot be nil") {
+	if !strings.Contains(err.Error(), "singleton value cannot be nil") {
 		t.Fatalf(
 			"expected error message to contain 'singleton value cannot be nil', got %s",
 			err.Error(),
@@ -974,7 +975,7 @@ func TestDino_SingletonConcurrentAccess(t *testing.T) {
 	for idx := range 100 {
 		keyNum := dino.RegistryKey{
 			Tag:  fmt.Sprintf("singletonTag%d", idx),
-			Type: reflect.TypeOf(0),
+			Type: reflect.TypeFor[int](),
 		}
 
 		registry := di.MockRegistry()
@@ -1005,7 +1006,7 @@ func TestDino_InjectNilTarget(t *testing.T) {
 		t.Fatalf("expected ErrInvalidInputValue, got %v", err)
 	}
 
-	if !contains(err.Error(), "inject target cannot be nil") {
+	if !strings.Contains(err.Error(), "inject target cannot be nil") {
 		t.Fatalf(
 			"expected error message to contain 'inject target cannot be nil', got %s",
 			err.Error(),
@@ -1023,7 +1024,7 @@ func TestDino_InjectNotStruct(t *testing.T) {
 		t.Fatalf("expected ErrExpectedStruct, got %v", err)
 	}
 
-	if !contains(err.Error(), "failed to inject dependencies:") {
+	if !strings.Contains(err.Error(), "failed to inject dependencies:") {
 		t.Fatalf(
 			"expected error message to contain 'failed to inject dependencies:', got %s",
 			err.Error(),
@@ -1370,12 +1371,457 @@ func TestDino_InjectConcurrentAccess(t *testing.T) {
 	}
 }
 
-func contains(str, substr string) bool {
-	for i := range len(str) - len(substr) + 1 {
-		if str[i:i+len(substr)] == substr {
-			return true
-		}
+func TestDino_InvokeNilFunction(t *testing.T) {
+	t.Parallel()
+
+	di := dino.New()
+
+	results, err := di.Invoke(nil)
+	if !errors.Is(err, dino.ErrInvalidInputValue) {
+		t.Fatalf("expected ErrInvalidInputValue, got %v", err)
 	}
 
-	return false
+	if !strings.Contains(err.Error(), "function to invoke cannot be nil") {
+		t.Fatalf(
+			"expected error message to contain 'function to invoke cannot be nil', got %s",
+			err.Error(),
+		)
+	}
+
+	if results != nil {
+		t.Fatalf("expected results to be nil, got %v", results)
+	}
+}
+
+func TestDino_InvokeNotFunction(t *testing.T) {
+	t.Parallel()
+
+	di := dino.New()
+
+	results, err := di.Invoke(42)
+	if !errors.Is(err, dino.ErrInvalidInputValue) {
+		t.Fatalf("expected ErrInvalidInputValue, got %v", err)
+	}
+
+	if !strings.Contains(err.Error(), "invoke expected a function") {
+		t.Fatalf(
+			"expected error message to contain 'invoke expected a function', got %s",
+			err.Error(),
+		)
+	}
+
+	if results != nil {
+		t.Fatalf("expected results to be nil, got %v", results)
+	}
+}
+
+func TestDino_InvokeError(t *testing.T) {
+	t.Parallel()
+
+	key := dino.RegistryKey{
+		Tag:  "",
+		Type: reflect.TypeFor[int](),
+	}
+
+	registry := new(dino.SyncMapRegistry)
+	registry.MockRegister(key, "this is not a reflect.Value")
+
+	di := dino.New().WithRegistry(registry)
+
+	results, err := di.Invoke(func(i int) int { return i })
+	if err == nil {
+		t.Fatalf("expected error from Invoke, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "failed to invoke function:") {
+		t.Fatalf(
+			"expected error message to contain 'failed to invoke function:', got %s",
+			err.Error(),
+		)
+	}
+
+	if results != nil {
+		t.Fatalf("expected results to be nil, got %v", results)
+	}
+}
+
+func TestDino_InvokeWithoutFunctionArgument(t *testing.T) {
+	t.Parallel()
+
+	di := dino.New()
+
+	results, err := di.Invoke(func() int { return 51 })
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result from Invoke, got %d", len(results))
+	}
+
+	result, ok := results[0].(int)
+	if !ok {
+		t.Fatalf("expected result to be of type int, got %T", results[0])
+	}
+
+	if result != 51 {
+		t.Fatalf("expected result to be 51, got %d", result)
+	}
+}
+
+func TestDino_InvokeWithSingleFunctionArgument(t *testing.T) {
+	t.Parallel()
+
+	type Service struct {
+		Value string
+	}
+
+	srv := &Service{
+		Value: "service value",
+	}
+
+	di := dino.New()
+
+	if err := di.Singleton(srv); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	results, err := di.Invoke(func(s *Service) string {
+		return s.Value
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result from Invoke, got %d", len(results))
+	}
+
+	result, ok := results[0].(string)
+	if !ok {
+		t.Fatalf("expected result to be of type string, got %T", results[0])
+	}
+
+	if result != "service value" {
+		t.Fatalf("expected result to be 'service value', got '%s'", result)
+	}
+}
+
+func TestDino_InvokeWithMultipleFunctionArguments(t *testing.T) {
+	t.Parallel()
+
+	type ServiceA struct {
+		Value string
+	}
+
+	type ServiceB struct {
+		Number int
+	}
+
+	srvA := &ServiceA{
+		Value: "service A value",
+	}
+
+	srvB := &ServiceB{
+		Number: 123,
+	}
+
+	di := dino.New()
+
+	if err := di.Singleton(srvA); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	if err := di.Singleton(srvB); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	results, err := di.Invoke(func(a *ServiceA, b *ServiceB) (string, int) {
+		return a.Value, b.Number
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results from Invoke, got %d", len(results))
+	}
+
+	resultA, ok := results[0].(string)
+	if !ok {
+		t.Fatalf("expected first result to be of type string, got %T", results[0])
+	}
+
+	resultB, ok := results[1].(int)
+	if !ok {
+		t.Fatalf("expected second result to be of type int, got %T", results[1])
+	}
+
+	if resultA != "service A value" {
+		t.Fatalf("expected first result to be 'service A value', got '%s'", resultA)
+	}
+
+	if resultB != 123 {
+		t.Fatalf("expected second result to be 123, got %d", resultB)
+	}
+}
+
+func TestDino_InvokeWithFunctionReturnError(t *testing.T) {
+	t.Parallel()
+
+	type Service struct {
+		Value string
+	}
+
+	srv := &Service{
+		Value: "service value",
+	}
+
+	expectedErr := errors.New("function error")
+
+	di := dino.New()
+
+	if err := di.Singleton(srv); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	results, err := di.Invoke(func(s *Service) (string, error) {
+		return s.Value, expectedErr
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results from Invoke, got %d", len(results))
+	}
+
+	resultStr, ok := results[0].(string)
+	if !ok {
+		t.Fatalf("expected first result to be of type string, got %T", results[0])
+	}
+
+	resultErr, ok := results[1].(error)
+	if !ok {
+		t.Fatalf("expected second result to be of type error, got %T", results[1])
+	}
+
+	if resultStr != "service value" {
+		t.Fatalf("expected first result to be 'service value', got '%s'", resultStr)
+	}
+
+	if !errors.Is(resultErr, expectedErr) {
+		t.Fatalf("expected second result to be '%v', got '%v'", expectedErr, resultErr)
+	}
+}
+
+func TestDino_InvokeWithFunctionReturnNil(t *testing.T) {
+	t.Parallel()
+
+	type Service struct {
+		Value string
+	}
+
+	srv := &Service{
+		Value: "service value",
+	}
+
+	di := dino.New()
+
+	if err := di.Singleton(srv); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	results, err := di.Invoke(func(*Service) *string {
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result from Invoke, got %d", len(results))
+	}
+
+	result, ok := results[0].(*string)
+	if !ok {
+		t.Fatalf("expected result to be of type *string, got %T", results[0])
+	}
+
+	if result != nil {
+		t.Fatalf("expected result to be nil, got %v", result)
+	}
+}
+
+func TestDino_InvokeWithUnexportedDependency(t *testing.T) {
+	t.Parallel()
+
+	type privateType struct {
+		value string
+	}
+
+	type Consumer struct {
+		Dep *privateType
+	}
+
+	srv := &privateType{
+		value: "unexported dependency value",
+	}
+
+	di := dino.New()
+
+	if err := di.Singleton(srv); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	results, err := di.Invoke(func(c *Consumer) string {
+		if c.Dep == nil {
+			return "dependency is nil"
+		}
+
+		return c.Dep.value
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result from Invoke, got %d", len(results))
+	}
+
+	result, ok := results[0].(string)
+	if !ok {
+		t.Fatalf("expected result to be of type string, got %T", results[0])
+	}
+
+	if result != "unexported dependency value" {
+		t.Fatalf("expected result to be 'unexported dependency value', got '%s'", result)
+	}
+}
+
+func TestDino_InvokeWithUnregisteredDependency(t *testing.T) {
+	t.Parallel()
+
+	di := dino.New()
+
+	results, err := di.Invoke(func(s string) string {
+		return s
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result from Invoke, got %d", len(results))
+	}
+
+	result, ok := results[0].(string)
+	if !ok {
+		t.Fatalf("expected result to be of type string, got %T", results[0])
+	}
+
+	if result != "" {
+		t.Fatalf("expected result to be empty string, got '%s'", result)
+	}
+}
+
+func TestDino_InvokeWithNestedFunctionDependencies(t *testing.T) {
+	t.Parallel()
+
+	type ServiceA struct {
+		Value string
+	}
+
+	type ServiceB struct {
+		A *ServiceA
+	}
+
+	srvA := &ServiceA{
+		Value: "nested service value",
+	}
+
+	di := dino.New()
+
+	if err := di.Singleton(srvA); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	results, err := di.Invoke(func(b *ServiceB) string {
+		if b.A == nil {
+			return "ServiceA is nil"
+		}
+
+		return b.A.Value
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from Invoke: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result from Invoke, got %d", len(results))
+	}
+
+	result, ok := results[0].(string)
+	if !ok {
+		t.Fatalf("expected result to be of type string, got %T", results[0])
+	}
+
+	if result != "nested service value" {
+		t.Fatalf("expected result to be 'nested service value', got '%s'", result)
+	}
+}
+
+func TestDino_InvokeConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
+	type Service struct {
+		Value string
+	}
+
+	srv := &Service{
+		Value: "test",
+	}
+
+	di := dino.New()
+
+	if err := di.Singleton(srv); err != nil {
+		t.Fatalf("unexpected error during singleton registration: %v", err)
+	}
+
+	resultsList := make([][]any, 100)
+	wg := sync.WaitGroup{}
+
+	for idx := range 100 {
+		wg.Go(func() {
+			results, err := di.Invoke(func(s *Service) string {
+				return fmt.Sprintf("%s_%d", s.Value, idx)
+			})
+			if err != nil {
+				t.Fatalf("unexpected error from Invoke: %v", err)
+			}
+
+			resultsList[idx] = results
+		})
+	}
+
+	wg.Wait()
+
+	for idx, results := range resultsList {
+		if len(results) != 1 {
+			t.Fatalf("expected 1 result from Invoke in goroutine %d, got %d", idx, len(results))
+		}
+
+		result, ok := results[0].(string)
+		if !ok {
+			t.Fatalf(
+				"expected result to be of type string in goroutine %d, got %T",
+				idx,
+				results[0],
+			)
+		}
+
+		if result != fmt.Sprintf("test_%d", idx) {
+			t.Fatalf("expected result to be 'test_%d' in goroutine %d, got '%s'", idx, idx, result)
+		}
+	}
 }

@@ -3,6 +3,7 @@ package dino_test
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/yuppyweb/dino"
@@ -53,7 +54,7 @@ func TestInjector_BindRegisterError(t *testing.T) {
 		t.Fatalf("expected ErrKeyTypeNil, got %v", err)
 	}
 
-	if !contains(err.Error(), "bind value to registry") {
+	if !strings.Contains(err.Error(), "bind value to registry") {
 		t.Fatalf(
 			"expected error message to contain 'bind value to registry', got '%s'",
 			err.Error(),
@@ -173,9 +174,9 @@ func TestInjector_InjectWithTag(t *testing.T) {
 	}
 
 	target := new(ServiceWithTaggedDeps)
-	enjector := dino.NewInjector(nil)
+	injector := dino.NewInjector(nil)
 
-	if err := enjector.Bind(
+	if err := injector.Bind(
 		reflect.TypeOf(primaryDB),
 		reflect.ValueOf(primaryDB),
 		"primary",
@@ -183,7 +184,7 @@ func TestInjector_InjectWithTag(t *testing.T) {
 		t.Fatalf("failed to bind primary database: %v", err)
 	}
 
-	if err := enjector.Bind(
+	if err := injector.Bind(
 		reflect.TypeOf(replicaDB),
 		reflect.ValueOf(replicaDB),
 		"replica",
@@ -191,7 +192,7 @@ func TestInjector_InjectWithTag(t *testing.T) {
 		t.Fatalf("failed to bind replica database: %v", err)
 	}
 
-	if err := enjector.Inject(reflect.ValueOf(target)); err != nil {
+	if err := injector.Inject(reflect.ValueOf(target)); err != nil {
 		t.Fatalf("failed to inject dependencies: %v", err)
 	}
 
@@ -279,7 +280,7 @@ func TestInjector_InjectErrorResolveFields(t *testing.T) {
 
 	errMsg := "resolve field Service: factory function for type *dino_test.SimpleService with tag '' returned error:"
 
-	if !contains(err.Error(), errMsg) {
+	if !strings.Contains(err.Error(), errMsg) {
 		t.Fatalf("expected error message to contain '%s', got '%s'", errMsg, err.Error())
 	}
 }
@@ -324,7 +325,7 @@ func TestInjector_InjectErrorNestedInject(t *testing.T) {
 	errMsg := "inject field Service: resolve field Service: factory function " +
 		"for type *dino_test.NestedService with tag '' returned error: service factory failed"
 
-	if !contains(err.Error(), errMsg) {
+	if !strings.Contains(err.Error(), errMsg) {
 		t.Fatalf("expected error message to contain '%s', got '%s'", errMsg, err.Error())
 	}
 }
@@ -583,7 +584,7 @@ func TestInjector_InvokeNotFunction(t *testing.T) {
 			}
 
 			expectedMsg := "expected function: got " + tc.typ
-			if !contains(err.Error(), expectedMsg) {
+			if !strings.Contains(err.Error(), expectedMsg) {
 				t.Fatalf(
 					"expected error message to contain '%s', got '%s'",
 					expectedMsg,
@@ -640,7 +641,7 @@ func TestInjector_InvokeFunctionWithPrepareError(t *testing.T) {
 	}
 
 	expectedMsg := "prepare function execution arguments:"
-	if !contains(err.Error(), expectedMsg) {
+	if !strings.Contains(err.Error(), expectedMsg) {
 		t.Fatalf("expected error message to contain '%s', got '%s'", expectedMsg, err.Error())
 	}
 }
@@ -774,7 +775,7 @@ func TestInjector_ResolveFactoryReturningError(t *testing.T) {
 		t.Fatalf("expected factory error, got %v", err)
 	}
 
-	if !contains(
+	if !strings.Contains(
 		err.Error(),
 		"factory function for type *dino_test.SimpleService with tag '' returned error:",
 	) {
@@ -881,7 +882,7 @@ func TestInjector_ResolveBindValueError(t *testing.T) {
 		t.Fatalf("expected ErrKeyTypeNil, got %v", err)
 	}
 
-	if !contains(err.Error(), "bind value to registry") {
+	if !strings.Contains(err.Error(), "bind value to registry") {
 		t.Fatalf(
 			"expected error message to contain 'bind value to registry', got '%s'",
 			err.Error(),
@@ -1113,7 +1114,7 @@ func TestInjector_PrepareNotFunction(t *testing.T) {
 			}
 
 			expectedMsg := "expected function: got " + tc.typ
-			if !contains(err.Error(), expectedMsg) {
+			if !strings.Contains(err.Error(), expectedMsg) {
 				t.Fatalf(
 					"expected error message to contain '%s', got '%s'",
 					expectedMsg,
@@ -1161,7 +1162,7 @@ func TestInjector_PrepareArgumentsInjectError(t *testing.T) {
 	errMsg := "inject argument of type *dino_test.SimpleService: resolve field Service: " +
 		"factory function for type *dino_test.NestedService with tag '' returned error: service factory failed"
 
-	if !contains(err.Error(), errMsg) {
+	if !strings.Contains(err.Error(), errMsg) {
 		t.Fatalf("expected error message to contain '%s', got '%s'", errMsg, err.Error())
 	}
 

@@ -130,12 +130,12 @@ func TestHelper_IsPointerToStruct(t *testing.T) {
 		},
 		{
 			name:     "Pointer to string is not pointer to struct",
-			input:    stringPtr("test"),
+			input:    new("test"),
 			expected: false,
 		},
 		{
 			name:     "Pointer to int is not pointer to struct",
-			input:    intPtr(42),
+			input:    new(42),
 			expected: false,
 		},
 		{
@@ -280,7 +280,7 @@ func TestHelper_IsNil(t *testing.T) {
 		},
 		{
 			name:     "Non-nil pointer",
-			input:    stringPtr("test"),
+			input:    new("test"),
 			expected: false,
 		},
 		{
@@ -412,14 +412,6 @@ func TestHelper_AsError(t *testing.T) {
 			}
 		})
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func intPtr(i int) *int {
-	return &i
 }
 
 type customError struct {

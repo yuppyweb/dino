@@ -12,17 +12,14 @@ var (
 	ErrCircularDependency = errors.New("circular dependency detected")
 )
 
-// Is responsible for managing dependencies, injecting values into structs,
+// Injector is responsible for managing dependencies, injecting values into structs,
 // and invoking functions with resolved arguments.
 type Injector struct {
-	// The registry used to store and resolve dependencies.
 	registry Registry
-
-	// A stack to track currently resolving keys for circular dependency detection.
-	stack map[RegistryKey]struct{}
+	stack    map[RegistryKey]struct{}
 }
 
-// Creates a new Injector with the provided registry.
+// NewInjector creates a new Injector with the provided registry.
 // If no registry is provided, it uses a default SyncMapRegistry.
 func NewInjector(registry Registry) *Injector {
 	if registry == nil {
@@ -35,7 +32,7 @@ func NewInjector(registry Registry) *Injector {
 	}
 }
 
-// Binds a value to the registry for the specified type and optional tags.
+// Bind registers a value in the registry for the specified type and optional tags.
 func (i *Injector) Bind(rt reflect.Type, rv reflect.Value, tags ...string) error {
 	if len(tags) == 0 {
 		tags = []string{""}
@@ -55,7 +52,7 @@ func (i *Injector) Bind(rt reflect.Type, rv reflect.Value, tags ...string) error
 	return nil
 }
 
-// Injects dependencies into the provided struct value based on the "inject" tags and registered values.
+// Inject resolves and sets dependencies on the provided struct value based on "inject" tags and registered values.
 func (i *Injector) Inject(rv reflect.Value) error {
 	rt := rv.Type()
 
@@ -117,7 +114,7 @@ func (i *Injector) Inject(rv reflect.Value) error {
 	return nil
 }
 
-// Invokes a function with arguments resolved from the registry. The function must be passed as a reflect.Value.
+// Invoke calls a function with arguments resolved from the registry. The function must be passed as a reflect.Value.
 func (i *Injector) Invoke(rv reflect.Value) ([]reflect.Value, error) {
 	rt := rv.Type()
 
@@ -134,7 +131,7 @@ func (i *Injector) Invoke(rv reflect.Value) ([]reflect.Value, error) {
 	return rv.Call(args), nil
 }
 
-// Resolves a value from the registry based on the provided key.
+// Resolve looks up a value from the registry based on the provided key.
 // If the registered value is a factory function, it calls the function to get the actual value.
 func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	rv, err := i.registry.Find(key)
@@ -217,7 +214,7 @@ func (i *Injector) Resolve(key RegistryKey) (reflect.Value, error) {
 	return rv, nil
 }
 
-// Prepares the arguments for a function call by resolving them from the registry
+// Prepare builds the arguments for a function call by resolving them from the registry
 // or creating new instances if not found.
 func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 	if !isFunction(fn) {
@@ -266,7 +263,7 @@ func (i *Injector) Prepare(fn reflect.Type) ([]reflect.Value, error) {
 	return arg, nil
 }
 
-// Creates a new instance of the specified type.
+// Create returns a new instance of the specified type.
 // For complex types like slices, maps, channels, pointers, and functions,
 // it creates appropriate zero values or factory functions.
 func (i *Injector) Create(rt reflect.Type) reflect.Value {
